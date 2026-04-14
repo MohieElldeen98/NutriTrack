@@ -38,7 +38,7 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({ isOpen, onClose }) =
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: `As an expert nutritionist, analyze the following list of foods consumed for a single meal and provide highly accurate, professional-grade nutritional data.
 
         CRITICAL RULES FOR ANALYSIS:

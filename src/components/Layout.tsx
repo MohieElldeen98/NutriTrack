@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LayoutDashboard, History, Settings, LogOut, Globe } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { InstallPWA } from './InstallPWA';
 
 export const Layout: React.FC = () => {
   const { logout } = useAuth();
@@ -57,6 +58,7 @@ export const Layout: React.FC = () => {
               </Link>
             );
           })}
+          <InstallPWA />
         </nav>
         <div className="p-4 border-t border-gray-200 space-y-2">
           <button 
@@ -77,8 +79,16 @@ export const Layout: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full pb-24 md:pb-8">
-        <Outlet />
+      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full pb-24 md:pb-8 flex flex-col min-h-screen">
+        <div className="md:hidden mb-4">
+          <InstallPWA />
+        </div>
+        <div className="flex-1">
+          <Outlet />
+        </div>
+        <footer className="mt-12 py-6 text-center text-sm text-gray-400 border-t border-gray-200/60">
+          {t('copyright')}
+        </footer>
       </main>
 
       {/* Mobile Bottom Nav */}

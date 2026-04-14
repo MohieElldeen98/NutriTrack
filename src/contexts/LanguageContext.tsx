@@ -71,7 +71,13 @@ export const translations = {
     edit: 'تعديل',
     recalculate: 'إعادة حساب',
     editFood: 'تعديل الأكل',
-    foodNameAndQuantity: 'اسم الأكل والكمية'
+    foodNameAndQuantity: 'اسم الأكل والكمية',
+    installApp: 'تثبيت التطبيق',
+    installInstructions: 'لتثبيت التطبيق على الآيفون: اضغط على زر المشاركة (Share) تحت في المتصفح وبعدين اختار "إضافة للشاشة الرئيسية" (Add to Home Screen). على الأندرويد: من قائمة المتصفح (الثلاث نقط) اختار "تثبيت التطبيق" (Install App).',
+    close: 'إغلاق',
+    copyright: 'جميع الحقوق محفوظة © 2026 دكتور محي',
+    welcomeDrMohie: 'أهلاً بيك في NutriTrack',
+    appDescription: 'مع دكتور محي • تابع أكلك وسعراتك بذكاء وسهولة.'
   },
   en: {
     dashboard: 'Dashboard',
@@ -141,7 +147,13 @@ export const translations = {
     edit: 'Edit',
     recalculate: 'Recalculate',
     editFood: 'Edit Food',
-    foodNameAndQuantity: 'Food Name & Quantity'
+    foodNameAndQuantity: 'Food Name & Quantity',
+    installApp: 'Install App',
+    installInstructions: 'To install on iOS: Tap the Share button at the bottom of Safari, then select "Add to Home Screen". On Android/Desktop: Use the browser menu to select "Install App".',
+    close: 'Close',
+    copyright: 'All rights reserved © 2026 Dr. Mohie',
+    welcomeDrMohie: 'Welcome to NutriTrack',
+    appDescription: 'With Dr. Mohie • Track your food and calories smartly.'
   }
 };
 

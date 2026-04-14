@@ -4,6 +4,7 @@ import { auth, setPersistence, browserLocalPersistence, browserSessionPersistenc
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Eye, EyeOff, Leaf } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,6 +14,7 @@ export const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,13 +42,16 @@ export const Login: React.FC = () => {
         <div className="flex justify-center text-emerald-500">
           <Leaf size={48} />
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Welcome back
+        <h2 className="mt-4 text-center text-3xl font-bold text-gray-900 tracking-tight">
+          {t('welcomeDrMohie')}
         </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Or{' '}
-          <Link to="/register" className="font-medium text-emerald-600 hover:text-emerald-500">
-            create a new account
+        <p className="mt-2 text-center text-base text-gray-500 px-4">
+          {t('appDescription')}
+        </p>
+        <p className="mt-4 text-center text-sm text-gray-600">
+          {t('haveAccount') === 'Already have an account?' ? 'Or ' : 'أو '}
+          <Link to="/register" className="font-medium text-emerald-600 hover:text-emerald-500 transition-colors">
+            {t('createAccount')}
           </Link>
         </p>
       </motion.div>
