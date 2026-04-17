@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MacroProgress } from '../components/MacroProgress';
 import { FoodList } from '../components/FoodList';
 import { AddFoodModal } from '../components/AddFoodModal';
 import { SuggestionsModal } from '../components/SuggestionsModal';
-import { Plus, Sparkles } from 'lucide-react';
+import { Plus, Sparkles, Crown, User as UserIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { motion } from 'motion/react';
 
 export const Dashboard: React.FC = () => {
-  const { targets, todayRecord, removeFood } = useData();
+  const { user, targets, todayRecord, removeFood, isVIP } = useData();
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false);
 
@@ -28,24 +30,56 @@ export const Dashboard: React.FC = () => {
     macroData.push({ name: t('empty'), value: 1, color: '#f3f4f6' });
   }
 
+  const handleSuggestClick = () => {
+    if (isVIP) {
+      setIsSuggestModalOpen(true);
+    } else {
+      navigate('/app/settings');
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <header className="flex justify-between items-end mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{t('today')}</h1>
-          <p className="text-gray-500 mt-1">{t('trackSubtitle')}</p>
+      {/* Personalized VIP Greeting Header */}
+      <header className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <Link to="/app/profile" className="hidden md:flex shrink-0">
+            <div className="w-16 h-16 rounded-full bg-emerald-50 border-2 border-emerald-100 flex items-center justify-center overflow-hidden shadow-sm hover:ring-4 ring-emerald-50 transition-all hover:scale-105">
+              {user?.photoData ? (
+                <img src={user.photoData} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <UserIcon size={28} className="text-emerald-300" />
+              )}
+            </div>
+          </Link>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+                {t('today')}
+              </h1>
+              {user?.firstName && (
+                <span className="text-2xl font-medium text-emerald-600">
+                  , {user.firstName} 👋
+                </span>
+              )}
+            </div>
+            <p className="text-gray-500">{t('trackSubtitle')}</p>
+          </div>
         </div>
+
         <div className="flex gap-2">
           <button
-            onClick={() => setIsSuggestModalOpen(true)}
-            className="hidden md:flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl font-medium hover:bg-emerald-100 transition-colors"
+            onClick={handleSuggestClick}
+            className={`hidden xl:flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-colors ${
+               isVIP ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+            }`}
           >
-            <Sparkles size={18} />
+            {isVIP ? <Sparkles size={18} /> : <Crown size={18} />}
             {t('suggest')}
           </button>
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors shadow-sm"
           >
             <Plus size={18} />
             {t('addFood')}
@@ -118,10 +152,10 @@ export const Dashboard: React.FC = () => {
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-900">{t('foodLog')}</h3>
             <button
-              onClick={() => setIsSuggestModalOpen(true)}
-              className="md:hidden text-emerald-600 p-2 bg-emerald-50 rounded-lg"
+              onClick={handleSuggestClick}
+              className={`md:hidden p-2 rounded-lg ${isVIP ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'}`}
             >
-              <Sparkles size={18} />
+              {isVIP ? <Sparkles size={18} /> : <Crown size={18} />}
             </button>
           </div>
           <FoodList foods={todayRecord?.foods || []} onRemove={removeFood} currentDate={todayRecord?.date} />

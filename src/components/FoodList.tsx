@@ -46,10 +46,13 @@ export const FoodList: React.FC<FoodListProps> = ({ foods, onRemove, currentDate
           return a.timestamp - b.timestamp;
         });
 
+        const mealCalories = mealFoods.reduce((sum, food) => sum + (food.calories || 0), 0);
+
         return (
           <div key={meal} className="space-y-3">
-            <h4 className="font-semibold text-gray-900 capitalize px-1 text-sm flex items-center gap-2">
-              {t(meal as any)}
+            <h4 className="font-semibold text-gray-900 capitalize px-1 text-sm flex items-center justify-between">
+              <span className="flex items-center gap-2">{t(meal as any)}</span>
+              <span className="text-gray-500 font-normal">{mealCalories} {t('kcal')}</span>
             </h4>
             {sortedFoods.map((food, idx) => (
               <motion.div

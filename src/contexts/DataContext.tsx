@@ -41,6 +41,8 @@ interface DataContextType {
   targets: UserTargets;
   todayRecord: DailyRecord | null;
   history: Record<string, DailyRecord>;
+  isVIP: boolean;
+  user: any; // We'll add user directly mostly for profile access
   updateTargets: (targets: UserTargets) => Promise<void>;
   addFood: (food: Omit<FoodItem, 'id' | 'timestamp'>, targetDate?: string) => Promise<void>;
   addFoods: (foods: Omit<FoodItem, 'id' | 'timestamp'>[], targetDate?: string) => Promise<void>;
@@ -65,30 +67,50 @@ export const useData = () => {
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user: authUser } = useAuth();
+  const [user, setUser] = useState<any>(null);
   const [targets, setTargets] = useState<UserTargets>(defaultTargets);
   const [todayRecord, setTodayRecord] = useState<DailyRecord | null>(null);
   const [history, setHistory] = useState<Record<string, DailyRecord>>({});
+  const [isVIP, setIsVIP] = useState(false);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   useEffect(() => {
-    if (!user) return;
+    if (!authUser) return;
 
-    const userRef = doc(db, 'users', user.uid);
+    if (authUser.email === 'pt.mohie@gmail.com') {
+      setIsVIP(true);
+    }
+
+    const userRef = doc(db, 'users', authUser.uid);
+    
+    // Ensure email is stored in Firestore so Admin Panel can read it
+    setDoc(userRef, { 
+      email: authUser.email,
+    }, { merge: true }).catch(err => console.error("Failed to sync email", err));
     
     const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
-      if (docSnap.exists() && docSnap.data().targets) {
-        setTargets(docSnap.data().targets);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setUser({ id: authUser.uid, email: authUser.email, ...data });
+        if (data.targets) {
+          setTargets(data.targets);
+        }
+        if (authUser.email !== 'pt.mohie@gmail.com') {
+          setIsVIP(data.plan === 'vip' || data.plan === 'vip_monthly');
+        }
       } else {
         // Initialize targets
-        setDoc(userRef, { targets: defaultTargets }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`));
+        const initialUser = { id: authUser.uid, email: authUser.email };
+        setUser({ ...initialUser, targets: defaultTargets });
+        setDoc(userRef, { targets: defaultTargets }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${authUser.uid}`));
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+      handleFirestoreError(error, OperationType.GET, `users/${authUser.uid}`);
     });
 
-    const todayRef = doc(db, 'users', user.uid, 'days', todayStr);
+    const todayRef = doc(db, 'users', authUser.uid, 'days', todayStr);
     const unsubscribeToday = onSnapshot(todayRef, (docSnap) => {
       if (docSnap.exists()) {
         setTodayRecord(docSnap.data() as DailyRecord);
@@ -100,33 +122,33 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `users/${user.uid}/days/${todayStr}`);
+      handleFirestoreError(error, OperationType.GET, `users/${authUser.uid}/days/${todayStr}`);
     });
 
     return () => {
       unsubscribeUser();
       unsubscribeToday();
     };
-  }, [user, todayStr]);
+  }, [authUser, todayStr]);
 
   const updateTargets = async (newTargets: UserTargets) => {
-    if (!user) return;
+    if (!authUser) return;
     try {
-      await setDoc(doc(db, 'users', user.uid), { targets: newTargets }, { merge: true });
+      await setDoc(doc(db, 'users', authUser.uid), { targets: newTargets }, { merge: true });
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+      handleFirestoreError(error, OperationType.WRITE, `users/${authUser.uid}`);
     }
   };
 
   const addFood = async (foodData: Omit<FoodItem, 'id' | 'timestamp'>, targetDate: string = todayStr) => {
-    if (!user) return;
+    if (!authUser) return;
     const food: FoodItem = {
       ...foodData,
       id: Math.random().toString(36).substring(2, 9),
       timestamp: Date.now(),
     };
 
-    const dayRef = doc(db, 'users', user.uid, 'days', targetDate);
+    const dayRef = doc(db, 'users', authUser.uid, 'days', targetDate);
     try {
       const docSnap = await getDoc(dayRef);
 
@@ -154,12 +176,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/days/${targetDate}`);
+      handleFirestoreError(error, OperationType.WRITE, `users/${authUser.uid}/days/${targetDate}`);
     }
   };
 
   const addFoods = async (foodsData: Omit<FoodItem, 'id' | 'timestamp'>[], targetDate: string = todayStr) => {
-    if (!user) return;
+    if (!authUser) return;
     
     const newFoods: FoodItem[] = foodsData.map(food => ({
       ...food,
@@ -167,7 +189,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       timestamp: Date.now(),
     }));
 
-    const dayRef = doc(db, 'users', user.uid, 'days', targetDate);
+    const dayRef = doc(db, 'users', authUser.uid, 'days', targetDate);
     try {
       const docSnap = await getDoc(dayRef);
 
@@ -200,12 +222,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/days/${targetDate}`);
+      handleFirestoreError(error, OperationType.WRITE, `users/${authUser.uid}/days/${targetDate}`);
     }
   };
 
   const updateFood = async (oldFood: FoodItem, newFoodData: Omit<FoodItem, 'id' | 'timestamp'>, oldDate: string, newDate: string) => {
-    if (!user) return;
+    if (!authUser) return;
 
     const newFood: FoodItem = {
       ...newFoodData,
@@ -216,7 +238,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (oldDate === newDate) {
         // Update in the same day
-        const dayRef = doc(db, 'users', user.uid, 'days', oldDate);
+        const dayRef = doc(db, 'users', authUser.uid, 'days', oldDate);
         const docSnap = await getDoc(dayRef);
         if (!docSnap.exists()) return;
 
@@ -236,7 +258,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Move to a different day
         await removeFood(oldFood.id, oldDate);
         
-        const newDayRef = doc(db, 'users', user.uid, 'days', newDate);
+        const newDayRef = doc(db, 'users', authUser.uid, 'days', newDate);
         const newDocSnap = await getDoc(newDayRef);
         
         if (!newDocSnap.exists()) {
@@ -264,14 +286,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/days/${oldDate}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${authUser.uid}/days/${oldDate}`);
     }
   };
 
   const removeFood = async (foodId: string, targetDate: string = todayStr) => {
-    if (!user) return;
+    if (!authUser) return;
     
-    const dayRef = doc(db, 'users', user.uid, 'days', targetDate);
+    const dayRef = doc(db, 'users', authUser.uid, 'days', targetDate);
     try {
       const docSnap = await getDoc(dayRef);
       if (!docSnap.exists()) return;
@@ -290,13 +312,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/days/${targetDate}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${authUser.uid}/days/${targetDate}`);
     }
   };
 
   const getRecordForDate = async (dateStr: string) => {
-    if (!user) return null;
-    const dayRef = doc(db, 'users', user.uid, 'days', dateStr);
+    if (!authUser) return null;
+    const dayRef = doc(db, 'users', authUser.uid, 'days', dateStr);
     try {
       const docSnap = await getDoc(dayRef);
       if (docSnap.exists()) {
@@ -304,13 +326,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return null;
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, `users/${user.uid}/days/${dateStr}`);
+      handleFirestoreError(error, OperationType.GET, `users/${authUser.uid}/days/${dateStr}`);
       return null;
     }
   };
 
   return (
-    <DataContext.Provider value={{ targets, todayRecord, history, updateTargets, addFood, addFoods, updateFood, removeFood, getRecordForDate }}>
+    <DataContext.Provider value={{ targets, todayRecord, history, isVIP, user, updateTargets, addFood, addFoods, updateFood, removeFood, getRecordForDate }}>
       {children}
     </DataContext.Provider>
   );

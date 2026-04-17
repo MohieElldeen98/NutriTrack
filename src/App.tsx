@@ -4,11 +4,21 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { Layout } from './components/Layout';
+import { PublicLayout } from './components/PublicLayout';
+import { Landing } from './pages/Landing';
+import { Pricing } from './pages/Pricing';
+import { Terms } from './pages/Terms';
+import { Privacy } from './pages/Privacy';
+import { ReturnPolicy } from './pages/ReturnPolicy';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { History } from './pages/History';
+import { Analytics } from './pages/Analytics';
+import { Progress } from './pages/Progress';
 import { Settings } from './pages/Settings';
+import { AdminDashboard } from './pages/Admin';
+import { Profile } from './pages/Profile';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -25,13 +35,25 @@ export default function App() {
       <AuthProvider>
         <Router>
           <Routes>
+            <Route element={<PublicLayout />}>
+              <Route path="/" element={<Landing />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/refund-policy" element={<ReturnPolicy />} />
+            </Route>
+
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             
-            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/app" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="history" element={<History />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="progress" element={<Progress />} />
+              <Route path="profile" element={<Profile />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="admin" element={<AdminDashboard />} />
             </Route>
           </Routes>
         </Router>

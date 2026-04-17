@@ -9,4 +9,60 @@
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  .my-prose {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .my-prose::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .my-prose::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .my-prose::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 20px;
+  }
+}
+
+/* Markdown overrides */
+.markdown-body strong {
+  font-weight: 700;
+  color: #111827; /* text-gray-900 */
+}
+.markdown-body p {
+  margin-bottom: 0.75rem;
+}
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+.markdown-body ul {
+  list-style-type: disc;
+  list-style-position: inside;
+  margin-bottom: 0.75rem;
+  margin-left: 0.5rem;
+}
+.markdown-body li {
+  color: #374151; /* text-gray-700 */
+  margin-bottom: 0.25rem;
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  font-weight: 700;
+  color: #111827; 
+  margin-bottom: 0.5rem;
+  margin-top: 1rem;
+}
+.markdown-body h1 { font-size: 1.125rem; }
+.markdown-body h2, .markdown-body h3 { font-size: 1rem; }
+
+/* In RTL mode, adjust list indent */
+[dir="rtl"] .markdown-body ul {
+  margin-left: 0;
+  margin-right: 0.5rem;
+  list-style-position: outside;
+  padding-right: 1rem;
 }

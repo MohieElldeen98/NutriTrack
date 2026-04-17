@@ -24,7 +24,7 @@ export const Login: React.FC = () => {
     try {
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/');
+      navigate('/app');
     } catch (err: any) {
       setError(err.message || 'Failed to log in');
     } finally {
