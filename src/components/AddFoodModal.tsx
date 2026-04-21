@@ -356,6 +356,7 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({ isOpen, onClose }) =
                           accept="image/*" 
                           capture="environment"
                           onChange={handleImageCapture}
+                          onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
                           className="hidden"
                         />
                         <div className="w-full aspect-square bg-gray-50 border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center p-6 text-gray-500 hover:bg-emerald-50/50 hover:border-emerald-200 transition-colors">
@@ -382,6 +383,19 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({ isOpen, onClose }) =
                             </div>
                           )}
                         </div>
+                        
+                        {!loading && error && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setImagePreview(null);
+                              setError('');
+                            }}
+                            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-100 text-emerald-700 rounded-xl font-medium hover:bg-emerald-200 transition-colors"
+                          >
+                            {lang === 'ar' ? 'تصوير مرة أخرى' : 'Try Again'}
+                          </button>
+                        )}
                       </div>
                     )}
                     
