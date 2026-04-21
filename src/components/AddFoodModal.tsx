@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, Sparkles, Loader2, Plus, Trash2 } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { useData } from '../contexts/DataContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { format } from 'date-fns';
+import imageCompression from 'browser-image-compression';
 
 interface AddFoodModalProps {
   isOpen: boolean;
@@ -51,26 +52,31 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({ isOpen, onClose }) =
         5. Language: The "name" and "assumption" fields MUST be in ${lang === 'ar' ? 'Arabic (Egyptian dialect preferred)' : 'English'}, matching the user's language.
         
         Foods:
-        ${validRows.map(r => `- ${r.quantity} ${r.foodName}`).join('\n')}
-        
-        Return ONLY a JSON array of objects with the following structure, no markdown formatting:
-        [
-          {
-            "name": "Combined name with quantity (e.g., ${lang === 'ar' ? '200 جرام فول مدمس' : '200g Ful Medames'})",
-            "calories": number (rounded to nearest 1),
-            "protein": number (rounded to nearest 0.1),
-            "carbs": number (rounded to nearest 0.1),
-            "fat": number (rounded to nearest 0.1),
-            "assumption": "String. If you made any assumptions about portion size or mapped the food to an equivalent, explain it here starting with '${lang === 'ar' ? 'افتراض:' : 'Assumption:'}'. Leave empty string if no assumptions were made."
+        ${validRows.map(r => `- ${r.quantity} ${r.foodName}`).join('\n')}`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING, description: "Combined name with quantity" },
+                calories: { type: Type.NUMBER, description: "Calories rounded to nearest 1" },
+                protein: { type: Type.NUMBER, description: "Protein rounded to nearest 0.1" },
+                carbs: { type: Type.NUMBER, description: "Carbs rounded to nearest 0.1" },
+                fat: { type: Type.NUMBER, description: "Fat rounded to nearest 0.1" },
+                assumption: { type: Type.STRING, description: "Any assumptions made" }
+              },
+              required: ["name", "calories", "protein", "carbs", "fat", "assumption"]
+            }
           }
-        ]`,
+        }
       });
 
       const text = response.text;
       if (!text) throw new Error("No response from AI");
       
-      const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      const foodDataArray = JSON.parse(cleanText);
+      const foodDataArray = JSON.parse(text.trim());
 
       const foodsToSave = foodDataArray.map((f: any) => ({
         name: f.name,
@@ -111,6 +117,14 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({ isOpen, onClose }) =
     setError('');
 
     try {
+      // Compress the image
+      const options = {
+        maxSizeMB: 1, 
+        maxWidthOrHeight: 1920,
+        useWebWorker: true
+      };
+      const compressedFile = await imageCompression(file, options);
+
       // Need a base64 string without data:image... prefix for gemini.
       const base64Promise = new Promise<string>((resolve) => {
         const reader2 = new FileReader();
@@ -118,45 +132,57 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({ isOpen, onClose }) =
           const res = reader2.result as string;
           resolve(res.split(',')[1]);
         };
-        reader2.readAsDataURL(file);
+        reader2.readAsDataURL(compressedFile);
       });
       const base64Data = await base64Promise;
 
       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
       const promptStr = `Analyze this image of a meal. Act as an expert Arab nutritionist. 
       Identify all the food items visible. Estimate their quantities/portion sizes in grams, cups, or pieces.
-      Return the answer ONLY as a JSON array exactly matching this structure, with NO markdown formatting around it:
-      [
-        {
-          "foodName": "String: The isolated name of the food (e.g. ${lang === 'ar' ? 'فول مدمس بالزيت' : 'Ful Medames with oil'})",
-          "quantity": "String: The estimated quantity (e.g. ${lang === 'ar' ? '200 جم' : '200 g'})"
-        }
-      ]
       Provide your best expert estimation. If there are multiple items, return multiple objects in the array.
-      Do not return anything else except the raw JSON array. Answer in ${lang === 'ar' ? 'Arabic' : 'English'}.`;
+      Answer in ${lang === 'ar' ? 'Arabic' : 'English'}.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3-flash-preview',
         contents: {
           parts: [
             {
               inlineData: {
                 data: base64Data,
-                mimeType: file.type,
+                mimeType: compressedFile.type,
               }
             },
             {
               text: promptStr
             }
           ]
+        },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                foodName: {
+                  type: Type.STRING,
+                  description: `The isolated name of the food (e.g. ${lang === 'ar' ? 'فول مدمس بالزيت' : 'Ful Medames with oil'})`
+                },
+                quantity: {
+                  type: Type.STRING,
+                  description: `The estimated quantity (e.g. ${lang === 'ar' ? '200 جم' : '200 g'})`
+                }
+              },
+              required: ["foodName", "quantity"]
+            }
+          }
         }
       });
 
       const text = response.text;
       if (!text) throw new Error("No response");
 
-      const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      const items = JSON.parse(cleanText);
+      const items = JSON.parse(text.trim());
 
       if (items && Array.isArray(items) && items.length > 0) {
         setRows(items.map((item, idx) => ({

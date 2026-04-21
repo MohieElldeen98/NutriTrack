@@ -129,7 +129,7 @@ export const Analytics: React.FC = () => {
       - DO NOT wrap the output in a markdown codeblock (no \`\`\`markdown).`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.1-pro-preview',
         contents: prompt,
       });
 

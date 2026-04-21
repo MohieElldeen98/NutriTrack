@@ -37,7 +37,7 @@ export const EditFoodModal: React.FC<EditFoodModalProps> = ({ isOpen, onClose, f
       if (foodName.trim() !== food.name.trim()) {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-3.1-pro-preview',
           contents: `As an expert nutritionist, analyze the following food consumed for a single meal and provide highly accurate, professional-grade nutritional data.
 
           CRITICAL RULES FOR ANALYSIS:
