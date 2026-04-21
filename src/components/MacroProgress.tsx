@@ -30,7 +30,7 @@ export const MacroProgress: React.FC<MacroProgressProps> = ({
   };
 
   return (
-    <div className="flex flex-col space-y-2">
+    <div className="flex flex-col space-y-1.5">
       <div className="flex flex-col xl:flex-row xl:justify-between xl:items-end text-sm gap-1">
         <span className="font-medium text-gray-700">{label}</span>
         <span className="text-gray-500 whitespace-nowrap">
@@ -44,6 +44,9 @@ export const MacroProgress: React.FC<MacroProgressProps> = ({
           transition={{ duration: 1, ease: "easeOut" }}
           className={cn("h-full rounded-full", colorClasses[color])}
         />
+      </div>
+      <div className="text-[10px] text-gray-400 text-end font-medium px-0.5">
+        {percentage}%
       </div>
     </div>
   );

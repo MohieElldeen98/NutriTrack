@@ -173,6 +173,12 @@ export const translations = {
     newMeasurement: 'تسجيل قياس جديد',
     saveMeasurement: 'حفظ القياس',
     tips: 'توصيات وأعشاب',
+    manualEntry: 'إدخال يدوي',
+    snapMeal: 'توقع بالكاميرا 📷',
+    uploadOrTake: 'صور الطبق أو ارفع صورة 📸',
+    analyzingImage: 'الذكاء الاصطناعي بيشوف الأكل...',
+    imageAnalyzed: 'تم تحليل الصورة! راجع البيانات تحت',
+    imageError: 'معرفتش أفهم الصورة. حاول تأخد صورة أوضح للوجبة.',
   },
   en: {
     dashboard: 'Dashboard',
@@ -344,6 +350,12 @@ export const translations = {
     newMeasurement: 'New Measurement',
     saveMeasurement: 'Save Record',
     tips: 'Tips & Herbs',
+    manualEntry: 'Manual Entry',
+    snapMeal: 'Snap Meal 📷',
+    uploadOrTake: 'Take a photo or upload 📸',
+    analyzingImage: 'AI is looking at your food...',
+    imageAnalyzed: 'Image Analyzed! Review data below',
+    imageError: 'Could not understand the image. Try a clearer photo.',
   }
 };
 

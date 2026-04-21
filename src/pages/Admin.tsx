@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { motion } from 'motion/react';
-import { Users, CreditCard, Activity, Search, ShieldAlert, Crown, UserX } from 'lucide-react';
-import { collection, query, limit, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { Users, CreditCard, Activity, Search, ShieldAlert, Crown, UserX, Trash2 } from 'lucide-react';
+import { collection, query, limit, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export const AdminDashboard: React.FC = () => {
@@ -12,6 +12,7 @@ export const AdminDashboard: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
   // Quick protection jump
   if (user?.email !== 'pt.mohie@gmail.com') {
@@ -52,9 +53,23 @@ export const AdminDashboard: React.FC = () => {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, plan: newPlan } : u));
     } catch (err) {
       console.error("Failed to update VIP status", err);
-      // alert won't work in iframe
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    setDeleteLoading(userId);
+    try {
+      // Delete the user's document from Firestore. 
+      // Note: This removes their profile data and effectively bans them from the app.
+      // A full auth deletion requires a Cloud Function with Firebase Admin.
+      await deleteDoc(doc(db, 'users', userId));
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (err) {
+      console.error("Failed to delete user", err);
+    } finally {
+      setDeleteLoading(null);
     }
   };
 
@@ -155,38 +170,54 @@ export const AdminDashboard: React.FC = () => {
                     </td>
                     <td className="p-4">
                       <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-medium ${
-                        u.plan === 'vip' || u.plan === 'vip_monthly' 
+                        u.email === 'pt.mohie@gmail.com' ? 'bg-amber-100 text-amber-800'
+                        : (u.plan === 'vip' || u.plan === 'vip_monthly') 
                           ? 'bg-amber-100 text-amber-800' 
                           : 'bg-gray-100 text-gray-600'
                       }`}>
-                        {u.plan === 'vip' || u.plan === 'vip_monthly' ? 'VIP' : 'Free'}
+                        {u.email === 'pt.mohie@gmail.com' ? 'VIP (Master)' : (u.plan === 'vip' || u.plan === 'vip_monthly' ? 'VIP' : 'Free')}
                       </span>
                     </td>
-                    <td className="p-4 text-right">
+                    <td className="p-4 text-right flex items-center justify-end gap-2">
                       {u.email !== 'pt.mohie@gmail.com' ? (
-                        <button 
-                          onClick={() => toggleVIP(u.id, u.plan)}
-                          disabled={actionLoading === u.id}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                            u.plan === 'vip' || u.plan === 'vip_monthly'
-                              ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                              : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                          } disabled:opacity-50`}
-                        >
-                          {actionLoading === u.id ? (
-                            <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                          ) : (u.plan === 'vip' || u.plan === 'vip_monthly') ? (
-                            <>
-                              <UserX size={14} />
-                              <span className="hidden sm:inline">Remove VIP</span>
-                            </>
-                          ) : (
-                            <>
-                              <Crown size={14} />
-                              <span className="hidden sm:inline">Make VIP</span>
-                            </>
-                          )}
-                        </button>
+                        <>
+                          <button 
+                            onClick={() => toggleVIP(u.id, u.plan)}
+                            disabled={actionLoading === u.id}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              u.plan === 'vip' || u.plan === 'vip_monthly'
+                                ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                                : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                            } disabled:opacity-50`}
+                          >
+                            {actionLoading === u.id ? (
+                              <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            ) : (u.plan === 'vip' || u.plan === 'vip_monthly') ? (
+                              <>
+                                <UserX size={14} />
+                                <span className="hidden sm:inline">Remove VIP</span>
+                              </>
+                            ) : (
+                              <>
+                                <Crown size={14} />
+                                <span className="hidden sm:inline">Make VIP</span>
+                              </>
+                            )}
+                          </button>
+                          
+                          <button
+                            onClick={() => deleteUser(u.id)}
+                            disabled={deleteLoading === u.id}
+                            className="inline-flex items-center justify-center p-1.5 bg-gray-50 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Delete User"
+                          >
+                            {deleteLoading === u.id ? (
+                              <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            ) : (
+                              <Trash2 size={16} />
+                            )}
+                          </button>
+                        </>
                       ) : (
                         <span className="text-xs text-gray-400 font-medium">Master</span>
                       )}

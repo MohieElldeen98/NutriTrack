@@ -93,12 +93,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setUser({ id: authUser.uid, email: authUser.email, ...data });
+        let effectivePlan = data.plan;
+        
+        if (authUser.email === 'pt.mohie@gmail.com') {
+          effectivePlan = 'vip'; // Force master to be VIP in UI globally
+          setIsVIP(true);
+        } else {
+          setIsVIP(data.plan === 'vip' || data.plan === 'vip_monthly');
+        }
+
+        setUser({ id: authUser.uid, email: authUser.email, ...data, plan: effectivePlan });
+        
         if (data.targets) {
           setTargets(data.targets);
-        }
-        if (authUser.email !== 'pt.mohie@gmail.com') {
-          setIsVIP(data.plan === 'vip' || data.plan === 'vip_monthly');
         }
       } else {
         // Initialize targets
