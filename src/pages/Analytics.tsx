@@ -98,17 +98,18 @@ export const Analytics: React.FC = () => {
     setInsightLoading(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const analysisData = weeklyData.map(day => ({
-        date: day.date,
-        totals: day.totals,
-        foods: day.foods.map(f => ({ name: f.name, calories: f.calories, time: f.time, meal: f.mealType, macros: { p: f.protein, c: f.carbs, f: f.fat } }))
-      }));
+      const analysisData = weeklyData.map(day => {
+        // Strip out excess data to save tokens (e.g., skip exact macros per food if not strictly needed)
+        const foodsSummary = day.foods.map(f => `${f.name} (${f.calories}kcal, ${f.mealType})`).join(', ');
+        return `Date: ${day.date} | Totals: ${day.totals.calories}kcal, ${day.totals.protein}g Protein, ${day.totals.carbs}g Carbs, ${day.totals.fat}g Fat | Foods: ${foodsSummary || 'None'}`;
+      }).join('\n');
 
       const prompt = `As an expert nutritionist, endocrinologist, and metabolic specialist (Dr. Mohie), analyze the past 7 days of eating habits.
       
       User Daily Targets: ${targets.calories} kcal, ${targets.protein}g protein, ${targets.carbs}g carbs, ${targets.fat}g fat.
       
-      Data: ${JSON.stringify(analysisData)}
+      Data:
+      ${analysisData}
       
       Requirements for the Analysis (You MUST cover these specific pillars based on the actual logged foods):
       1. السعرات والتكيف الأيضي (Metabolic Adaptation): Are they undereating (risking starvation mode) or overeating?

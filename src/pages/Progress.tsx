@@ -80,10 +80,10 @@ export const Progress: React.FC = () => {
       setWeight(''); setBodyFat(''); setWaist(''); setChest(''); setHips(''); setArms(''); setThighs('');
       setShowAddForm(false);
 
-      // Generate analysis auto if VIP
-      if (isVIP) {
-        generateAnalysis([...measurements, newData]);
-      }
+      // Prevent auto-generation to save tokens, let user click the button if needed
+      // if (isVIP) {
+      //   generateAnalysis([...measurements, newData]);
+      // }
     } catch (err) {
       console.error(err);
     } finally {
