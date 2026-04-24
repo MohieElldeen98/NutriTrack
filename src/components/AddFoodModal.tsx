@@ -6,6 +6,25 @@ import { useData } from '../contexts/DataContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { format } from 'date-fns';
 import imageCompression from 'browser-image-compression';
+import { db } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
+function normalizeCacheKey(quantity: string, foodName: string): string {
+  let combined = `${quantity} ${foodName}`.toLowerCase().trim();
+  
+  // Basic Arabic text normalization
+  combined = combined.replace(/[أإآا]/g, 'ا'); // Normalize Alif
+  combined = combined.replace(/ة/g, 'ه');     // Normalize Ta-marbuta
+  combined = combined.replace(/ى/g, 'ي');     // Normalize Alif-maqsura
+  
+  // Remove "ال" definition (very basic approach)
+  combined = combined.replace(/\bال/g, '');
+  
+  // Remove non-alphacharacters (keep arabic and english letters and numbers)
+  combined = combined.replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+  
+  return combined;
+}
 
 interface AddFoodModalProps {
   isOpen: boolean;
@@ -39,46 +58,80 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({ isOpen, onClose }) =
     setError('');
 
     try {
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: `As an expert nutritionist, analyze the following list of foods consumed for a single meal and provide highly accurate, professional-grade nutritional data.
+      const cachedFoods: any[] = [];
+      const rowsToFetch: typeof validRows = [];
 
-        CRITICAL RULES FOR ANALYSIS:
-        1. Data Sources Priority: 1st: Egyptian local food composition tables -> 2nd: FAO/INFOODS -> 3rd: USDA FoodData Central -> 4th: Other reliable databases.
-        2. Accuracy & Mapping: Use Egyptian data first. If an exact match isn't found, map to the closest equivalent (e.g., "homemade ful medames" -> "ful medames - average 200g plate").
-        3. Units & Inputs: Automatically understand units (grams, cups, tablespoons, medium piece, plate, etc.). If the quantity is missing or unclear, assume a standard Egyptian portion size and state the assumption. Do not ask the user for clarification; always provide a best-effort assumption.
-        4. Rounding: Round calories to the nearest 1 kcal. Round macronutrients (protein, carbs, fat) to the nearest 0.1 gram. Do not use high-precision decimals unnecessarily.
-        5. Language: The "name" and "assumption" fields MUST be in ${lang === 'ar' ? 'Arabic (Egyptian dialect preferred)' : 'English'}, matching the user's language.
-        
-        Foods:
-        ${validRows.map(r => `- ${r.quantity} ${r.foodName}`).join('\n')}`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING, description: "Combined name with quantity" },
-                calories: { type: Type.NUMBER, description: "Calories rounded to nearest 1" },
-                protein: { type: Type.NUMBER, description: "Protein rounded to nearest 0.1" },
-                carbs: { type: Type.NUMBER, description: "Carbs rounded to nearest 0.1" },
-                fat: { type: Type.NUMBER, description: "Fat rounded to nearest 0.1" },
-                assumption: { type: Type.STRING, description: "Any assumptions made" }
-              },
-              required: ["name", "calories", "protein", "carbs", "fat", "assumption"]
+      // 1. Check global cache first to save tokens for identical foods across users
+      for (const row of validRows) {
+        const cacheKey = normalizeCacheKey(row.quantity, row.foodName);
+        const cacheRef = doc(db, 'foodCache', cacheKey);
+        try {
+          const cacheSnap = await getDoc(cacheRef);
+          if (cacheSnap.exists()) {
+            cachedFoods.push(cacheSnap.data());
+          } else {
+            rowsToFetch.push({ ...row, _cacheKey: cacheKey } as any);
+          }
+        } catch (err) {
+          // Fallback if firestore rules prevent read/write to 'foodCache'
+          rowsToFetch.push({ ...row, _cacheKey: cacheKey } as any);
+        }
+      }
+
+      let fetchedData: any[] = [];
+
+      // 2. Fetch only what's not in cache
+      if (rowsToFetch.length > 0) {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.1-pro-preview',
+          contents: `As an expert nutritionist, analyze the following list of foods consumed for a single meal and provide highly accurate, professional-grade nutritional data.
+
+          CRITICAL RULES FOR ANALYSIS:
+          1. Data Sources Priority: 1st: Egyptian local food composition tables -> 2nd: FAO/INFOODS -> 3rd: USDA FoodData Central -> 4th: Other reliable databases.
+          2. Accuracy & Mapping: Use Egyptian data first. If an exact match isn't found, map to the closest equivalent (e.g., "homemade ful medames" -> "ful medames - average 200g plate").
+          3. Units & Inputs: Automatically understand units (grams, cups, tablespoons, medium piece, plate, etc.). If the quantity is missing or unclear, assume a standard Egyptian portion size and state the assumption. Do not ask the user for clarification; always provide a best-effort assumption.
+          4. Rounding: Round calories to the nearest 1 kcal. Round macronutrients (protein, carbs, fat) to the nearest 0.1 gram. Do not use high-precision decimals unnecessarily.
+          5. Language: The "name" and "assumption" fields MUST be in ${lang === 'ar' ? 'Arabic (Egyptian dialect preferred)' : 'English'}, matching the user's language.
+          
+          Foods:
+          ${rowsToFetch.map(r => `- ${r.quantity} ${r.foodName}`).join('\n')}`,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING, description: "Combined name with quantity" },
+                  calories: { type: Type.NUMBER, description: "Calories rounded to nearest 1" },
+                  protein: { type: Type.NUMBER, description: "Protein rounded to nearest 0.1" },
+                  carbs: { type: Type.NUMBER, description: "Carbs rounded to nearest 0.1" },
+                  fat: { type: Type.NUMBER, description: "Fat rounded to nearest 0.1" },
+                  assumption: { type: Type.STRING, description: "Any assumptions made" }
+                },
+                required: ["name", "calories", "protein", "carbs", "fat", "assumption"]
+              }
             }
           }
-        }
-      });
+        });
 
-      const text = response.text;
-      if (!text) throw new Error("No response from AI");
-      
-      const foodDataArray = JSON.parse(text.trim());
+        const text = response.text;
+        if (!text) throw new Error("No response from AI");
+        
+        fetchedData = JSON.parse(text.trim());
 
-      const foodsToSave = foodDataArray.map((f: any) => ({
+        // Save successfully fetched data to global cache
+        fetchedData.forEach((f: any, index: number) => {
+          const matchingRow: any = rowsToFetch[index];
+          if (matchingRow && matchingRow._cacheKey) {
+            const cacheRef = doc(db, 'foodCache', matchingRow._cacheKey);
+            setDoc(cacheRef, f).catch(() => {}); // silently fail if rule blocks
+          }
+        });
+      }
+
+      const finalFoods = [...cachedFoods, ...fetchedData].map((f: any) => ({
         name: f.name,
         calories: f.calories,
         protein: f.protein,
@@ -89,7 +142,7 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({ isOpen, onClose }) =
         time
       }));
 
-      await addFoods(foodsToSave, date);
+      await addFoods(finalFoods, date);
 
       setRows([{ id: Date.now(), quantity: '', foodName: '' }]);
       setImagePreview(null);
@@ -136,7 +189,7 @@ export const AddFoodModal: React.FC<AddFoodModalProps> = ({ isOpen, onClose }) =
       });
       const base64Data = await base64Promise;
 
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const promptStr = `Analyze this image of a meal. Act as an expert Arab nutritionist. 
       Identify all the food items visible. Estimate their quantities/portion sizes in grams, cups, or pieces.
       Provide your best expert estimation. If there are multiple items, return multiple objects in the array.

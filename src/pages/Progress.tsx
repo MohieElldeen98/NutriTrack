@@ -9,8 +9,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { GoogleGenAI } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-
 export const Progress: React.FC = () => {
   const { user, isVIP } = useData();
   const { t, lang } = useLanguage();
@@ -96,6 +94,7 @@ export const Progress: React.FC = () => {
     setAnalyzing(true);
     
     try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const latest = data[data.length - 1];
       const previous = data.length > 1 ? data[data.length - 2] : null;
 

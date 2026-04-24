@@ -4,6 +4,18 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useData } from '../contexts/DataContext';
 import { FoodItem } from '../types';
 import { GoogleGenAI } from '@google/genai';
+import { db } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
+function normalizeCacheKey(foodName: string): string {
+  let combined = foodName.toLowerCase().trim();
+  combined = combined.replace(/[أإآا]/g, 'ا');
+  combined = combined.replace(/ة/g, 'ه');
+  combined = combined.replace(/ى/g, 'ي');
+  combined = combined.replace(/\bال/g, '');
+  combined = combined.replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+  return combined;
+}
 
 interface EditFoodModalProps {
   isOpen: boolean;
@@ -35,37 +47,54 @@ export const EditFoodModal: React.FC<EditFoodModalProps> = ({ isOpen, onClose, f
     try {
       // Check if food name changed. If yes, recalculate macros.
       if (foodName.trim() !== food.name.trim()) {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.1-pro-preview',
-          contents: `As an expert nutritionist, analyze the following food consumed for a single meal and provide highly accurate, professional-grade nutritional data.
+        const cacheKey = normalizeCacheKey(foodName);
+        const cacheRef = doc(db, 'foodCache', cacheKey);
+        let foodData: any = null;
 
-          CRITICAL RULES FOR ANALYSIS:
-          1. Data Sources Priority: 1st: Egyptian local food composition tables -> 2nd: FAO/INFOODS -> 3rd: USDA FoodData Central -> 4th: Other reliable databases.
-          2. Accuracy & Mapping: Use Egyptian data first. If an exact match isn't found, map to the closest equivalent (e.g., "homemade ful medames" -> "ful medames - average 200g plate").
-          3. Units & Inputs: Automatically understand units (grams, cups, tablespoons, medium piece, plate, etc.). If the quantity is missing or unclear, assume a standard Egyptian portion size and state the assumption. Do not ask the user for clarification; always provide a best-effort assumption.
-          4. Rounding: Round calories to the nearest 1 kcal. Round macronutrients (protein, carbs, fat) to the nearest 0.1 gram. Do not use high-precision decimals unnecessarily.
-          5. Language: The "name" and "assumption" fields MUST be in ${lang === 'ar' ? 'Arabic (Egyptian dialect preferred)' : 'English'}, matching the user's language.
-          
-          Food:
-          - ${foodName}
-          
-          Return ONLY a JSON object with the following structure, no markdown formatting:
-          {
-            "name": "Combined name with quantity (e.g., ${lang === 'ar' ? '200 جرام فول مدمس' : '200g Ful Medames'})",
-            "calories": number (rounded to nearest 1),
-            "protein": number (rounded to nearest 0.1),
-            "carbs": number (rounded to nearest 0.1),
-            "fat": number (rounded to nearest 0.1),
-            "assumption": "String. If you made any assumptions about portion size or mapped the food to an equivalent, explain it here starting with '${lang === 'ar' ? 'افتراض:' : 'Assumption:'}'. Leave empty string if no assumptions were made."
-          }`,
-        });
+        try {
+          const cacheSnap = await getDoc(cacheRef);
+          if (cacheSnap.exists()) {
+            foodData = cacheSnap.data();
+          }
+        } catch (err) {
+          // ignore cache read error
+        }
 
-        const text = response.text;
-        if (!text) throw new Error("No response from AI");
-        
-        const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const foodData = JSON.parse(cleanText);
+        if (!foodData) {
+          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+          const response = await ai.models.generateContent({
+            model: 'gemini-3.1-pro-preview',
+            contents: `As an expert nutritionist, analyze the following food consumed for a single meal and provide highly accurate, professional-grade nutritional data.
+  
+            CRITICAL RULES FOR ANALYSIS:
+            1. Data Sources Priority: 1st: Egyptian local food composition tables -> 2nd: FAO/INFOODS -> 3rd: USDA FoodData Central -> 4th: Other reliable databases.
+            2. Accuracy & Mapping: Use Egyptian data first. If an exact match isn't found, map to the closest equivalent (e.g., "homemade ful medames" -> "ful medames - average 200g plate").
+            3. Units & Inputs: Automatically understand units (grams, cups, tablespoons, medium piece, plate, etc.). If the quantity is missing or unclear, assume a standard Egyptian portion size and state the assumption. Do not ask the user for clarification; always provide a best-effort assumption.
+            4. Rounding: Round calories to the nearest 1 kcal. Round macronutrients (protein, carbs, fat) to the nearest 0.1 gram. Do not use high-precision decimals unnecessarily.
+            5. Language: The "name" and "assumption" fields MUST be in ${lang === 'ar' ? 'Arabic (Egyptian dialect preferred)' : 'English'}, matching the user's language.
+            
+            Food:
+            - ${foodName}
+            
+            Return ONLY a JSON object with the following structure, no markdown formatting:
+            {
+              "name": "Combined name with quantity (e.g., ${lang === 'ar' ? '200 جرام فول مدمس' : '200g Ful Medames'})",
+              "calories": number (rounded to nearest 1),
+              "protein": number (rounded to nearest 0.1),
+              "carbs": number (rounded to nearest 0.1),
+              "fat": number (rounded to nearest 0.1),
+              "assumption": "String. If you made any assumptions about portion size or mapped the food to an equivalent, explain it here starting with '${lang === 'ar' ? 'افتراض:' : 'Assumption:'}'. Leave empty string if no assumptions were made."
+            }`,
+          });
+  
+          const text = response.text;
+          if (!text) throw new Error("No response from AI");
+          
+          const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+          foodData = JSON.parse(cleanText);
+
+          setDoc(cacheRef, foodData).catch(() => {});
+        }
 
         await updateFood(food, {
           name: foodData.name,
@@ -95,7 +124,7 @@ export const EditFoodModal: React.FC<EditFoodModalProps> = ({ isOpen, onClose, f
       onClose();
     } catch (err) {
       console.error(err);
-      setError(t('error'));
+      setError(lang === 'ar' ? 'حدث خطأ. حاول مرة أخرى.' : 'An error occurred. Try again.');
     } finally {
       setLoading(false);
     }
@@ -165,7 +194,7 @@ export const EditFoodModal: React.FC<EditFoodModalProps> = ({ isOpen, onClose, f
                 value={foodName}
                 onChange={(e) => setFoodName(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                placeholder={t('foodExample')}
+                placeholder={lang === 'ar' ? 'أمثلة: 200 جرام فراخ' : 'e.g., 200g chicken'}
                 required
               />
               <p className="text-xs text-gray-500 mt-2">
